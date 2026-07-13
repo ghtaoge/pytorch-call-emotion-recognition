@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pytorch-call-emotion-recognition"
+version = "0.1.0"
+description = "Local-first Mandarin call emotion recognition with PyTorch"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+license = { text = "MIT" }
+dependencies = [
+  "fastapi>=0.115,<1.0",
+  "uvicorn[standard]>=0.34,<1.0",
+  "python-multipart>=0.0.20,<1.0",
+  "pydantic-settings>=2.7,<3.0",
+  "numpy>=1.26,<3.0",
+  "scipy>=1.14,<2.0",
+  "imageio-ffmpeg>=0.6,<1.0",
+  "torch>=2.6,<3.0",
+  "transformers>=4.48,<5.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "httpx>=0.28,<1.0",
+  "mypy>=1.14,<2.0",
+  "pytest>=8.3,<9.0",
+  "pytest-asyncio>=0.25,<1.0",
+  "pytest-cov>=6.0,<7.0",
+  "pytest-playwright>=0.7,<1.0",
+  "ruff>=0.9,<1.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers"
+testpaths = ["tests"]
+markers = ["model_smoke: downloads and runs the real checkpoint"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+packages = ["app"]

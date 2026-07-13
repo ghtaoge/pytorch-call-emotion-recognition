@@ -1,1 +1,58 @@
 .worktrees/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.venv/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Models and Hugging Face caches
+*.bin
+*.safetensors
+*.pt
+*.pth
+.cache/huggingface/
+.huggingface/
+huggingface/
+
+# Temporary and private audio
+*.wav
+*.mp3
+*.m4a
+*.aac
+*.flac
+*.ogg
+*.webm
+
+# Coverage
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Playwright
+playwright-report/
+test-results/
+blob-report/
+
+# IDE
+.idea/
+.vscode/
+*.code-workspace
+
+# OS metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Generated design review assets
+docs/superpowers/visuals/
