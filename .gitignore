@@ -43,6 +43,7 @@ coverage.xml
 playwright-report/
 test-results/
 blob-report/
+output/
 
 # IDE
 .idea/

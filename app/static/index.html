@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>声析 · 通话情绪识别</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">声</span>
+        <div><h1>声析</h1><p>通话情绪识别</p></div>
+      </div>
+      <div class="runtime" aria-label="运行状态">
+        <span><i id="serviceDot" class="status-dot"></i><b id="serviceStatus">本地服务</b></span>
+        <span>模型 <b id="modelStatus">未加载</b></span>
+        <span>设备 <b id="deviceStatus">检测中</b></span>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="audio-panel" aria-labelledby="audioTitle">
+        <div class="section-heading">
+          <div><p class="section-index">01</p><h2 id="audioTitle">准备音频</h2></div>
+          <button id="clearButton" class="icon-button" type="button" aria-label="清除音频" title="清除音频">
+            <img src="/static/icons/trash-2.svg" alt="" />
+          </button>
+        </div>
+
+        <div class="segmented" role="tablist" aria-label="音频来源">
+          <button id="modeUpload" type="button" role="tab" aria-selected="true">上传音频</button>
+          <button id="modeRecord" type="button" role="tab" aria-selected="false">现场录音</button>
+        </div>
+
+        <div id="uploadPanel" class="source-panel" role="tabpanel">
+          <label id="dropzone" class="dropzone" for="fileInput">
+            <img src="/static/icons/upload.svg" alt="" />
+            <strong>选择或拖入通话音频</strong>
+            <span>WAV、MP3、FLAC、OGG、M4A，最长 5 分钟</span>
+            <input id="fileInput" type="file" accept=".wav,.mp3,.flac,.ogg,.m4a,.webm,audio/*" />
+          </label>
+        </div>
+
+        <div id="recordPanel" class="source-panel record-panel" role="tabpanel" hidden>
+          <div class="recorder">
+            <button id="recordButton" class="record-button" type="button" aria-label="开始录音">
+              <img src="/static/icons/mic.svg" alt="" />
+            </button>
+            <div><strong id="recordState">点击开始录音</strong><time id="recordTimer">00:00</time></div>
+            <div class="record-actions">
+              <button id="pauseButton" class="icon-button" type="button" aria-label="暂停录音" title="暂停" disabled><img src="/static/icons/pause.svg" alt="" /></button>
+              <button id="stopButton" class="icon-button" type="button" aria-label="结束录音" title="结束" disabled><img src="/static/icons/square.svg" alt="" /></button>
+            </div>
+          </div>
+        </div>
+
+        <div id="audioPreview" class="audio-preview" hidden>
+          <div class="file-row"><div><strong id="fileName"></strong><span id="fileMeta"></span></div><span id="sourceBadge" class="source-badge"></span></div>
+          <canvas id="waveform" width="960" height="160" aria-label="音频波形"></canvas>
+          <audio id="audioPlayer" controls preload="metadata"></audio>
+        </div>
+
+        <p id="errorMessage" class="field-error" role="alert" hidden></p>
+        <div class="command-row">
+          <button id="analyzeButton" class="primary-button" type="button" disabled>
+            <img src="/static/icons/activity.svg" alt="" /><span>开始分析</span>
+          </button>
+          <p>音频仅在本机处理，刷新页面后自动清除</p>
+        </div>
+      </section>
+
+      <section class="result-panel" aria-labelledby="resultTitle">
+        <div class="section-heading"><div><p class="section-index">02</p><h2 id="resultTitle">分析结果</h2></div><span id="elapsedTime" class="elapsed"></span></div>
+        <div id="globalStatus" class="global-status" aria-live="polite">
+          <img src="/static/icons/activity.svg" alt="" /><span>等待音频</span>
+        </div>
+        <div id="resultEmpty" class="result-empty"><div class="empty-rings" aria-hidden="true"></div><p>结果将在这里呈现</p></div>
+        <div id="resultContent" class="result-content" hidden>
+          <div class="summary-band">
+            <div><span>主导情绪</span><strong id="dominantEmotion">中性</strong></div>
+            <span id="reliabilityBadge" class="reliability high">可靠性较高</span>
+          </div>
+          <p id="excludedNotice" class="notice" hidden></p>
+          <div id="probabilities" class="probabilities">
+            <div class="probability-row" data-emotion="neutral"><span>中性</span><div><i></i></div><b>0%</b></div>
+            <div class="probability-row" data-emotion="happy"><span>开心</span><div><i></i></div><b>0%</b></div>
+            <div class="probability-row" data-emotion="anger"><span>愤怒</span><div><i></i></div><b>0%</b></div>
+            <div class="probability-row" data-emotion="sad"><span>悲伤</span><div><i></i></div><b>0%</b></div>
+          </div>
+          <div class="timeline-heading"><h3>情绪时间轴</h3><span id="voicedRatio"></span></div>
+          <div id="timeline" class="timeline" aria-label="分段情绪时间轴"></div>
+          <div id="segmentDetail" class="segment-detail">选择时间轴片段查看详情</div>
+        </div>
+      </section>
+    </main>
+
+    <footer><span>本地优先 · 无账号 · 无历史记录</span><a href="/docs/model-limitations" aria-label="查看模型限制">模型结果仅供技术演示</a></footer>
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>
