@@ -1,37 +1,230 @@
+/* ================================================================
+   声析 · 通话情绪识别 — 全局样式表
+
+   设计体系概述：
+   - 色彩方案基于中国传统朱红色（vermilion）作为品牌强调色
+   - 中性色层次分明：paper（纸底色）→ surface（卡片色）→ ink（墨色）→ muted（辅助色）
+   - 情绪颜色映射：中性灰、开心绿、愤怒红、悲伤蓝
+   - 全局圆角统一为 8px，间距采用 clamp() 实现响应式缩放
+   ================================================================ */
+
+/* ====== 设计系统变量 ======
+   --paper: 页面底色，温暖的米白色，营造纸质阅读感
+   --surface: 卡片/面板底色，纯白色，与 paper 形成层次对比
+   --ink: 主文字色，深灰近黑，保证高可读性
+   --muted: 辅助文字色，中灰，用于标签、提示等次级信息
+   --line: 分割线色，浅灰绿，柔和分隔区域
+   --vermilion / --vermilion-dark: 朱红色系，品牌主色，用于按钮、强调、愤怒情绪
+   --neutral: 中性情绪色，冷灰蓝
+   --happy: 开心情绪色，沉稳绿
+   --anger: 愤怒情绪色，与品牌朱红一致
+   --sad: 悲伤情绪色，安静蓝紫
+   --warning: 警告色，琥珀黄
+   --radius: 全局圆角基准值 */
 :root {
   --paper: #f5f4ef; --surface: #fff; --ink: #202327; --muted: #6c7178; --line: #d9dcd8;
   --vermilion: #c63c2f; --vermilion-dark: #a72d23; --neutral: #6f7f8e; --happy: #3c835c;
   --anger: #c63c2f; --sad: #5869a8; --warning: #a46a18; --radius: 8px;
+  /* 全局字体栈：优先使用中文字体（微软雅黑/苹方/思源），回退到系统默认 */
   font-family: "Microsoft YaHei UI", "PingFang SC", "Noto Sans CJK SC", system-ui, sans-serif;
   color: var(--ink); background: var(--paper); letter-spacing: 0;
 }
+
+/* ====== 全局重置 ======
+   border-box 模型统一所有元素的盒模型计算方式 */
 * { box-sizing: border-box; }
+
+/* 页面基础：无默认边距，最小宽度320px保证移动端可用，最小高度撑满视口 */
 body { margin: 0; min-width: 320px; min-height: 100vh; }
+
+/* 表单控件继承全局字体，避免浏览器默认字体不一致 */
 button, input { font: inherit; letter-spacing: 0; }
+
+/* 所有按钮默认显示指针光标 */
 button { cursor: pointer; }
+
+/* ====== 无障碍焦点样式 ======
+   焦点可见时显示朱红色半透明描边，确保键盘导航用户可感知
+   拖拽区域获得焦点时同样显示描边 */
 button:focus-visible, input:focus-visible, .dropzone:focus-within { outline: 3px solid rgba(198,60,47,.22); outline-offset: 2px; }
+
+/* ====== 顶部状态栏 ======
+   固定高度76px，水平内边距响应式缩放（20px~64px）
+   Flex 布局：品牌左对齐，运行状态右对齐
+   底部1px分割线，白色半透明背景（模拟磨砂质感） */
 .topbar { height: 76px; padding: 0 clamp(20px,4vw,64px); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.86); }
+
+/* 品牌标识区：图标 + 文字水平排列，间距12px */
 .brand { display: flex; align-items: center; gap: 12px; }
+
+/* 品牌方块图标：38x38px 朱红底色白字，圆角4px，网格居中 */
 .brand-mark { width: 38px; height: 38px; display: grid; place-items: center; color: #fff; background: var(--vermilion); font: 700 20px serif; border-radius: 4px; }
+
+/* 品牌文字：标题19px粗体，副标题12px辅助色 */
 .brand h1 { margin: 0; font-size: 19px; line-height: 1.1; }.brand p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
-.runtime { display: flex; gap: 22px; color: var(--muted); font-size: 12px; }.runtime b { color: var(--ink); margin-left: 4px; }.status-dot { display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: #aab0b5; }.status-dot.online { background: var(--happy); }
+
+/* 运行状态区：右对齐，辅助色12px文字，键值间距22px
+   数值部分用墨色粗体突出 */
+.runtime { display: flex; gap: 22px; color: var(--muted); font-size: 12px; }.runtime b { color: var(--ink); margin-left: 4px; }
+
+/* 状态圆点：7x7px圆形，默认灰色，在线时变为开心绿色 */
+.status-dot { display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: #aab0b5; }.status-dot.online { background: var(--happy); }
+
+/* ====== 工作区网格布局 ======
+   最大宽度1440px居中，减去顶部栏和底部栏高度后撑满
+   双栏布局：左栏（音频面板）占1.05fr，右栏（结果面板）占0.95fr
+   右栏最小380px保证结果内容不过度挤压
+   在≤860px断点下切换为单栏垂直布局 */
 .workspace { width: min(1440px,100%); min-height: calc(100vh - 126px); margin: auto; display: grid; grid-template-columns: minmax(0,1.05fr) minmax(380px,.95fr); }
+
+/* 面板通用内边距：响应式缩放（26px~56px）
+   音频面板：白色底色 + 右侧1px分割线
+   结果面板：paper底色，与音频面板形成明暗对比 */
 .audio-panel, .result-panel { padding: clamp(26px,4vw,56px); }.audio-panel { background: var(--surface); border-right: 1px solid var(--line); }.result-panel { background: var(--paper); }
+
+/* ====== 面板标题行 ======
+   固定高度48px，Flex布局：左侧内容 + 右侧操作按钮
+   序号标签：朱红色12px等宽字体
+   标题文字：22px常规字重
+   耗时标签：辅助色12px，显示分析耗时和推理设备 */
 .section-heading { height: 48px; display: flex; align-items: flex-start; justify-content: space-between; }.section-heading > div { display: flex; align-items: baseline; gap: 12px; }.section-index { margin: 0; color: var(--vermilion); font: 700 12px ui-monospace,monospace; }.section-heading h2 { margin: 0; font-size: 22px; }.elapsed { color: var(--muted); font-size: 12px; }
+
+/* ====== 图标按钮 ======
+   40x40px方形按钮，10px内边距，1px边框+圆角6px
+   悬停时边框加深，禁用时降低透明度并禁止光标 */
 .icon-button { width: 40px; height: 40px; padding: 10px; display: inline-grid; place-items: center; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }.icon-button:hover { border-color: #a7aba8; }.icon-button:disabled { opacity: .38; cursor: not-allowed; }.icon-button img, button img { width: 19px; height: 19px; }
+
+/* ====== 分段切换控件 ======
+   272px宽42px高，3px内边距形成视觉凹陷
+   双栏网格均分两个按钮，浅灰底色#ecece8模拟轨道
+   选中按钮：白色底色 + 微阴影 + 粗体，形成凸起效果 */
 .segmented { width: 272px; height: 42px; padding: 3px; margin: 24px 0 18px; display: grid; grid-template-columns: 1fr 1fr; background: #ecece8; border-radius: 6px; }.segmented button { border: 0; border-radius: 4px; color: var(--muted); background: transparent; }.segmented button[aria-selected="true"] { color: var(--ink); background: #fff; box-shadow: 0 1px 3px rgba(20,25,30,.12); font-weight: 600; }
-.source-panel { min-height: 210px; }.dropzone { min-height: 210px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; border: 1px dashed #b7bbb8; background: #fafaf8; border-radius: var(--radius); transition: border-color .18s,background .18s; }.dropzone:hover,.dropzone.dragover { border-color: var(--vermilion); background: #fff8f6; }.dropzone img { width: 28px; height: 28px; }.dropzone strong { font-size: 16px; }.dropzone span { color: var(--muted); font-size: 12px; }.dropzone input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-.record-panel { display: grid; place-items: center; border: 1px solid var(--line); border-radius: var(--radius); background: #fafaf8; }.recorder { width: min(460px,100%); display: grid; grid-template-columns: 72px 1fr auto; gap: 18px; align-items: center; }.record-button { width: 68px; height: 68px; border: 0; border-radius: 50%; background: var(--vermilion); display: grid; place-items: center; }.record-button img { width: 26px; filter: brightness(0) invert(1); }.record-button.recording { box-shadow: 0 0 0 8px rgba(198,60,47,.13); }.recorder strong,.recorder time { display: block; }.recorder time { margin-top: 5px; color: var(--muted); font: 18px ui-monospace,monospace; }.record-actions { display: flex; gap: 8px; }
+
+/* ====== 音频来源面板 ======
+   最小高度210px，为内容提供统一垂直空间 */
+.source-panel { min-height: 210px; }
+
+/* ====== 拖拽上传区域 ======
+   最小高度210px居中排列图标/标题/说明，虚线边框暗示交互性
+   悬停/拖拽悬停时：边框变为朱红色，底色变为微红白#fff8f6
+   内部文件输入框：绝对定位1x1px透明，视觉隐藏但可触发 */
+.dropzone { min-height: 210px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; border: 1px dashed #b7bbb8; background: #fafaf8; border-radius: var(--radius); transition: border-color .18s,background .18s; }.dropzone:hover,.dropzone.dragover { border-color: var(--vermilion); background: #fff8f6; }.dropzone img { width: 28px; height: 28px; }.dropzone strong { font-size: 16px; }.dropzone span { color: var(--muted); font-size: 12px; }.dropzone input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+
+/* ====== 录音面板 ======
+   居中布局，1px实线边框 + 圆角 + 浅灰底色，与拖拽区域视觉统一 */
+.record-panel { display: grid; place-items: center; border: 1px solid var(--line); border-radius: var(--radius); background: #fafaf8; }
+
+/* 录音器布局：三栏网格（圆形按钮 | 状态文字 | 操作按钮）
+   最大宽度460px，间距18px */
+.recorder { width: min(460px,100%); display: grid; grid-template-columns: 72px 1fr auto; gap: 18px; align-items: center; }
+
+/* 录音按钮：68x68px朱红色圆形，白色麦克风图标
+   录音中状态：外围8px朱红半透明脉冲环，模拟录音指示灯 */
+.record-button { width: 68px; height: 68px; border: 0; border-radius: 50%; background: var(--vermilion); display: grid; place-items: center; }.record-button img { width: 26px; filter: brightness(0) invert(1); }.record-button.recording { box-shadow: 0 0 0 8px rgba(198,60,47,.13); }
+
+/* 录音状态文字和计时器：状态粗体，计时器等宽字体18px辅助色 */
+.recorder strong,.recorder time { display: block; }.recorder time { margin-top: 5px; color: var(--muted); font: 18px ui-monospace,monospace; }
+
+/* 录音操作按钮组：暂停和停止，8px间距 */
+.record-actions { display: flex; gap: 8px; }
+
+/* ====== 音频预览区 ======
+   音频加载后显示，顶部18px间距 + 1px分割线隔离
+   文件信息行：名称（最大380px截断省略）+ 大小 + 来源标签
+   来源标签：4px内边距 + 边框徽章样式 */
 .audio-preview { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); }.file-row { min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }.file-row strong,.file-row span { display: block; }.file-row strong { max-width: min(380px,60vw); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }.file-row span { color: var(--muted); margin-top: 4px; font-size: 12px; }.source-badge { padding: 4px 7px; border: 1px solid var(--line); border-radius: 4px; }
+
+/* 波形画布：宽度100%自适应，固定高度92px，浅灰底色+圆角
+   HTML5音频播放器：宽度100%，高度42px精简控件 */
 #waveform { width: 100%; height: 92px; display: block; margin: 8px 0; background: #f6f7f5; border-radius: 4px; }audio { width: 100%; height: 42px; }
-.field-error { margin: 12px 0 0; color: var(--vermilion-dark); font-size: 13px; }.command-row { min-height: 84px; margin-top: 20px; display: flex; align-items: center; gap: 18px; }.primary-button { height: 48px; min-width: 150px; border: 0; border-radius: 6px; color: #fff; background: var(--vermilion); display: inline-flex; align-items: center; justify-content: center; gap: 9px; font-weight: 700; }.primary-button:hover { background: var(--vermilion-dark); }.primary-button:disabled { background: #bbb; cursor: not-allowed; }.primary-button img { filter: brightness(0) invert(1); }.command-row p { color: var(--muted); font-size: 12px; }
+
+/* ====== 错误提示 ======
+   朱红色深色文字，12px上方间距 */
+.field-error { margin: 12px 0 0; color: var(--vermilion-dark); font-size: 13px; }
+
+/* ====== 操作行 ======
+   最小高度84px，Flex布局：分析按钮 + 隐私提示文字
+   主按钮：48px高150px宽朱红底色，白色图标+文字，6px圆角
+   悬停变深朱红，禁用时灰底色+禁止光标 */
+.command-row { min-height: 84px; margin-top: 20px; display: flex; align-items: center; gap: 18px; }.primary-button { height: 48px; min-width: 150px; border: 0; border-radius: 6px; color: #fff; background: var(--vermilion); display: inline-flex; align-items: center; justify-content: center; gap: 9px; font-weight: 700; }.primary-button:hover { background: var(--vermilion-dark); }.primary-button:disabled { background: #bbb; cursor: not-allowed; }.primary-button img { filter: brightness(0) invert(1); }.command-row p { color: var(--muted); font-size: 12px; }
+
+/* ====== 全局状态指示器 ======
+   42px高，Flex布局：图标17px + 文字13px辅助色
+   busy状态时图标播放脉冲动画（1.1s循环） */
 .global-status { height: 42px; margin: 24px 0 18px; display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 13px; }.global-status img { width: 17px; }.global-status.busy img { animation: pulse 1.1s infinite; }
+
+/* ====== 结果空状态 ======
+   最小高度390px居中，同心圆装饰（外圈1px浅灰 + 内圈1px中灰）
+   提示文字13px辅助色 */
 .result-empty { min-height: 390px; display: grid; place-content: center; justify-items: center; color: var(--muted); }.empty-rings { width: 110px; height: 110px; border: 1px solid #d6d9d5; border-radius: 50%; position: relative; }.empty-rings::after { content:""; position:absolute; inset:23px; border:1px solid #c5c9c5; border-radius:50%; }.result-empty p { font-size: 13px; }
-.summary-band { min-height: 94px; padding: 18px 0; display: flex; align-items: center; justify-content: space-between; border-top: 2px solid var(--ink); border-bottom: 1px solid var(--line); }.summary-band span { display: block; color: var(--muted); font-size: 12px; }.summary-band strong { display: block; margin-top: 5px; font-size: 30px; }.reliability { padding: 6px 9px; border-radius: 4px; font-weight: 600; }.reliability.high { color: var(--happy); background: #e9f3ed; }.reliability.low { color: var(--warning); background: #f8edd9; }.notice { padding: 10px 12px; color: #7e5317; background: #f8edd9; border-left: 3px solid var(--warning); font-size: 12px; }
+
+/* ====== 结果汇总条 ======
+   顶部2px墨色粗线 + 底部1px细线，形成视觉锚点
+   主导情绪30px粗体突出显示
+   可靠性徽章：高可靠性→绿色底#e9f3ed，低可靠性→琥珀底#f8edd9 */
+.summary-band { min-height: 94px; padding: 18px 0; display: flex; align-items: center; justify-content: space-between; border-top: 2px solid var(--ink); border-bottom: 1px solid var(--line); }.summary-band span { display: block; color: var(--muted); font-size: 12px; }.summary-band strong { display: block; margin-top: 5px; font-size: 30px; }.reliability { padding: 6px 9px; border-radius: 4px; font-weight: 600; }.reliability.high { color: var(--happy); background: #e9f3ed; }.reliability.low { color: var(--warning); background: #f8edd9; }
+
+/* ====== 注意事项通知 ======
+   琥珀色左边框 + 浅黄底色，用于提示低可靠性或排除情绪占比 */
+.notice { padding: 10px 12px; color: #7e5317; background: #f8edd9; border-left: 3px solid var(--warning); font-size: 12px; }
+
+/* ====== 概率条区域 ======
+   每行38px高三栏网格：标签48px | 进度条1fr自适应 | 数值48px右对齐
+   进度条：8px高圆角轨道，深灰底色
+   填充条<i>：初始宽度0，通过JS动态设置宽度，0.4s缓动过渡
+   按情绪类别映射颜色：中性灰蓝/开心绿/愤怒红/悲伤蓝 */
 .probabilities { padding: 18px 0; border-bottom: 1px solid var(--line); }.probability-row { height: 38px; display: grid; grid-template-columns: 48px 1fr 48px; align-items: center; gap: 12px; font-size: 13px; }.probability-row > div { height: 8px; overflow: hidden; background: #dedfdb; border-radius: 4px; }.probability-row i { display: block; width: 0; height: 100%; border-radius: inherit; transition: width .4s ease; }.probability-row b { text-align: right; font: 600 12px ui-monospace,monospace; }.probability-row[data-emotion="neutral"] i { background: var(--neutral); }.probability-row[data-emotion="happy"] i { background: var(--happy); }.probability-row[data-emotion="anger"] i { background: var(--anger); }.probability-row[data-emotion="sad"] i { background: var(--sad); }
-.timeline-heading { margin-top: 20px; display: flex; justify-content: space-between; align-items: center; }.timeline-heading h3 { margin: 0; font-size: 15px; }.timeline-heading span { color: var(--muted); font-size: 12px; }.timeline { min-height: 74px; margin-top: 12px; display: flex; align-items: stretch; gap: 3px; overflow-x: auto; padding-bottom: 7px; }.timeline button { flex: 1 0 48px; min-width: 48px; height: 58px; padding: 6px 3px; border: 1px solid transparent; border-radius: 4px; color: #fff; font-size: 10px; }.timeline button.selected { outline: 2px solid var(--ink); outline-offset: 2px; }.timeline button.silent { color: var(--muted); background: #dfe0dc; }.timeline button.neutral { background: var(--neutral); }.timeline button.happy { background: var(--happy); }.timeline button.anger { background: var(--anger); }.timeline button.sad { background: var(--sad); }.timeline button.low { opacity: .66; }.segment-detail { min-height: 42px; padding: 10px 0; color: var(--muted); font-size: 12px; }
+
+/* ====== 时间轴标题行 ======
+   标题15px + 有效语音比例辅助色12px */
+.timeline-heading { margin-top: 20px; display: flex; justify-content: space-between; align-items: center; }.timeline-heading h3 { margin: 0; font-size: 15px; }.timeline-heading span { color: var(--muted); font-size: 12px; }
+
+/* ====== 情绪时间轴 ======
+   Flex行布局，3px间距，最小高度74px
+   水平溢出可滚动，底部7px内边距为滚动条留空间
+   每个分段按钮：最小48px宽58px高，白色文字10px
+   按情绪类别映射底色：静音灰/中性灰蓝/开心绿/愤怒红/悲伤蓝
+   低可靠性分段半透明（opacity .66）
+   选中分段：2px墨色描边突出 */
+.timeline { min-height: 74px; margin-top: 12px; display: flex; align-items: stretch; gap: 3px; overflow-x: auto; padding-bottom: 7px; }.timeline button { flex: 1 0 48px; min-width: 48px; height: 58px; padding: 6px 3px; border: 1px solid transparent; border-radius: 4px; color: #fff; font-size: 10px; }.timeline button.selected { outline: 2px solid var(--ink); outline-offset: 2px; }.timeline button.silent { color: var(--muted); background: #dfe0dc; }.timeline button.neutral { background: var(--neutral); }.timeline button.happy { background: var(--happy); }.timeline button.anger { background: var(--anger); }.timeline button.sad { background: var(--sad); }.timeline button.low { opacity: .66; }
+
+/* 分段详情：最小高度42px，辅助色12px */
+.segment-detail { min-height: 42px; padding: 10px 0; color: var(--muted); font-size: 12px; }
+
+/* ====== 底部声明栏 ======
+   50px高，水平内边距响应式缩放
+   1px顶分割线，辅助色11px
+   链接继承辅助色 */
 footer { height: 50px; padding: 0 clamp(20px,4vw,64px); display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }footer a { color: var(--muted); }
-[hidden] { display: none !important; }@keyframes pulse { 50% { opacity: .35; } }
+
+/* ====== 通用隐藏指令 ======
+   HTML hidden 属性强制 display:none，优先级最高 */
+[hidden] { display: none !important; }
+
+/* ====== 脉冲动画 ======
+   busy状态图标使用：1.1s循环，50%帧时降至35%透明度模拟闪烁 */
+@keyframes pulse { 50% { opacity: .35; } }
+
+/* ====== 响应式断点：≤860px（平板/窄屏） ======
+   - 顶部栏改为弹性高度，运行状态垂直排列右对齐
+   - 工作区切换为单栏垂直布局（音频面板在上）
+   - 音频面板右侧边框变为底边框
+   - 面板内边距统一缩减为26px 20px
+   - 空状态最小高度缩减为250px
+   - 分段控件宽度100%
+   - 录音器改为双栏布局（按钮+文字），操作按钮居中横排
+   - 操作行改为垂直排列，主按钮宽度100%
+   - 隐私提示文字居中 */
 @media (max-width: 860px) { .topbar { height: auto; min-height: 76px; padding-block: 12px; align-items: flex-start; }.runtime { gap: 7px; flex-direction: column; text-align: right; }.workspace { grid-template-columns: 1fr; }.audio-panel { border-right: 0; border-bottom: 1px solid var(--line); }.audio-panel,.result-panel { padding: 26px 20px; }.result-empty { min-height: 250px; }.segmented { width: 100%; }.recorder { grid-template-columns: 64px 1fr; }.record-actions { grid-column: 1/-1; justify-content: center; }.command-row { align-items: stretch; flex-direction: column; }.primary-button { width: 100%; }.command-row p { text-align: center; } }
+
+/* ====== 响应式断点：≤420px（小手机） ======
+   - 隐藏运行状态的第二项（模型状态），节省空间
+   - 隐藏品牌副标题
+   - 主导情绪字号缩减为26px
+   - 底部声明改为垂直排列，弹性高度 */
 @media (max-width: 420px) { .runtime span:nth-child(2) { display: none; }.brand p { display: none; }.summary-band strong { font-size: 26px; }footer { align-items:flex-start; padding-block:12px; height:auto; gap:10px; flex-direction:column; } }
+
+/* ====== 无障碍：减少动画偏好 ======
+   用户开启系统"减少动画"设置时，禁用所有动画和过渡效果
+   确保动画敏感用户不受脉冲闪烁等干扰 */
 @media (prefers-reduced-motion: reduce) { *,*::before,*::after { scroll-behavior:auto !important; animation:none !important; transition:none !important; } }

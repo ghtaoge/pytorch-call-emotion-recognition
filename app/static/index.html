@@ -1,18 +1,28 @@
 <!doctype html>
+<!-- 声析 · 通话情绪识别工作台主页面
+     页面结构：顶部状态栏 → 工作区（音频面板 + 结果面板） → 底部声明
+     所有音频数据仅在浏览器本地处理，不上传至外部服务器 -->
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
+    <!-- 移动端适配：宽度跟随设备，初始缩放比例1:1 -->
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- 强制浅色模式，避免深色模式下组件配色异常 -->
     <meta name="color-scheme" content="light" />
     <title>声析 · 通话情绪识别</title>
+    <!-- 引入全局样式表 -->
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
+    <!-- ==================== 顶部状态栏 ====================
+         包含品牌标识和运行状态信息（服务状态、模型状态、推理设备） -->
     <header class="topbar">
+      <!-- 品牌区域：朱红色方块标识 + 名称 + 副标题 -->
       <div class="brand">
         <span class="brand-mark" aria-hidden="true">声</span>
         <div><h1>声析</h1><p>通话情绪识别</p></div>
       </div>
+      <!-- 运行状态区域：显示后端服务是否在线、模型是否加载、推理使用何种设备 -->
       <div class="runtime" aria-label="运行状态">
         <span><i id="serviceDot" class="status-dot"></i><b id="serviceStatus">本地服务</b></span>
         <span>模型 <b id="modelStatus">未加载</b></span>
@@ -20,35 +30,56 @@
       </div>
     </header>
 
+    <!-- ==================== 主工作区 ====================
+         采用左右双栏网格布局：左侧音频面板、右侧结果面板
+         在窄屏（≤860px）下切换为上下单栏布局 -->
     <main class="workspace">
+
+      <!-- ==================== 01 音频面板 ====================
+           提供两种音频获取方式：上传本地文件 / 浏览器现场录音
+           面板底部包含波形预览区、错误提示区和分析按钮 -->
       <section class="audio-panel" aria-labelledby="audioTitle">
+        <!-- 面板标题行：序号标签 + 标题文字 + 清除按钮 -->
         <div class="section-heading">
           <div><p class="section-index">01</p><h2 id="audioTitle">准备音频</h2></div>
+          <!-- 清除按钮：重置所有音频数据和分析结果 -->
           <button id="clearButton" class="icon-button" type="button" aria-label="清除音频" title="清除音频">
             <img src="/static/icons/trash-2.svg" alt="" />
           </button>
         </div>
 
+        <!-- 模式切换分段控件：在"上传音频"和"现场录音"之间切换
+             录音进行中禁止切换模式，防止数据丢失 -->
         <div class="segmented" role="tablist" aria-label="音频来源">
           <button id="modeUpload" type="button" role="tab" aria-selected="true">上传音频</button>
           <button id="modeRecord" type="button" role="tab" aria-selected="false">现场录音</button>
         </div>
 
+        <!-- ====== 上传面板 ======
+             拖拽/点击上传区域，支持 WAV/MP3/FLAC/OGG/M4A/WEBM 格式
+             文件大小上限 50MB，时长建议不超过5分钟 -->
         <div id="uploadPanel" class="source-panel" role="tabpanel">
           <label id="dropzone" class="dropzone" for="fileInput">
             <img src="/static/icons/upload.svg" alt="" />
             <strong>选择或拖入通话音频</strong>
             <span>WAV、MP3、FLAC、OGG、M4A，最长 5 分钟</span>
+            <!-- 文件输入框：隐藏样式，由拖拽区域触发 -->
             <input id="fileInput" type="file" accept=".wav,.mp3,.flac,.ogg,.m4a,.webm,audio/*" />
           </label>
         </div>
 
+        <!-- ====== 录音面板 ======
+             使用浏览器 MediaRecorder API 进行现场录音
+             录音自动限制最长5分钟（300秒），到达后自动停止 -->
         <div id="recordPanel" class="source-panel record-panel" role="tabpanel" hidden>
           <div class="recorder">
+            <!-- 录音按钮：圆形朱红色按钮，录音中时显示脉冲动画 -->
             <button id="recordButton" class="record-button" type="button" aria-label="开始录音">
               <img src="/static/icons/mic.svg" alt="" />
             </button>
+            <!-- 录音状态文字和计时器 -->
             <div><strong id="recordState">点击开始录音</strong><time id="recordTimer">00:00</time></div>
+            <!-- 暂停和停止按钮：录音开始后才可用 -->
             <div class="record-actions">
               <button id="pauseButton" class="icon-button" type="button" aria-label="暂停录音" title="暂停" disabled><img src="/static/icons/pause.svg" alt="" /></button>
               <button id="stopButton" class="icon-button" type="button" aria-label="结束录音" title="结束" disabled><img src="/static/icons/square.svg" alt="" /></button>
@@ -56,47 +87,81 @@
           </div>
         </div>
 
+        <!-- ====== 音频预览区 ======
+             加载音频后显示：文件名、大小、来源标签、波形图、播放器 -->
         <div id="audioPreview" class="audio-preview" hidden>
+          <!-- 文件信息行：名称/大小 + 来源标签（上传/录音） -->
           <div class="file-row"><div><strong id="fileName"></strong><span id="fileMeta"></span></div><span id="sourceBadge" class="source-badge"></span></div>
+          <!-- 波形画布：通过 AudioContext 解码后绘制采样峰值波形 -->
           <canvas id="waveform" width="960" height="160" aria-label="音频波形"></canvas>
+          <!-- HTML5 音频播放器：支持播放/暂停/进度拖拽 -->
           <audio id="audioPlayer" controls preload="metadata"></audio>
         </div>
 
+        <!-- 错误提示：文件过大、格式不支持、麦克风权限缺失等 -->
         <p id="errorMessage" class="field-error" role="alert" hidden></p>
+        <!-- 操作行：分析按钮 + 隐私提示文字 -->
         <div class="command-row">
+          <!-- 分析按钮：音频就绪后才可点击，点击后向后端发送 NDJSON 流式请求 -->
           <button id="analyzeButton" class="primary-button" type="button" disabled>
             <img src="/static/icons/activity.svg" alt="" /><span>开始分析</span>
           </button>
+          <!-- 隐私提示：强调音频仅在本地处理 -->
           <p>音频仅在本机处理，刷新页面后自动清除</p>
         </div>
       </section>
 
+      <!-- ==================== 02 结果面板 ====================
+           展示情绪分析结果：主导情绪、四分类概率条、分段情绪时间轴
+           结果通过 NDJSON 流式接收，实时更新状态 -->
       <section class="result-panel" aria-labelledby="resultTitle">
+        <!-- 面板标题行：序号标签 + 标题文字 + 耗时/设备信息 -->
         <div class="section-heading"><div><p class="section-index">02</p><h2 id="resultTitle">分析结果</h2></div><span id="elapsedTime" class="elapsed"></span></div>
+        <!-- 全局状态指示：等待音频 / 正在连接 / 正在分析 / 分析完成 等
+             busy 状态下图标显示脉冲动画 -->
         <div id="globalStatus" class="global-status" aria-live="polite">
           <img src="/static/icons/activity.svg" alt="" /><span>等待音频</span>
         </div>
+        <!-- 空状态占位：无分析结果时显示同心圆 + 提示文字 -->
         <div id="resultEmpty" class="result-empty"><div class="empty-rings" aria-hidden="true"></div><p>结果将在这里呈现</p></div>
+
+        <!-- ====== 分析结果内容区 ======
+             分析完成后显示：主导情绪、可靠性标签、概率条、时间轴 -->
         <div id="resultContent" class="result-content" hidden>
+          <!-- 汇总条：主导情绪名称 + 可靠性徽章（较高/谨慎参考） -->
           <div class="summary-band">
             <div><span>主导情绪</span><strong id="dominantEmotion">中性</strong></div>
+            <!-- 可靠性徽章：高可靠性显示绿色，低可靠性显示橙色 -->
             <span id="reliabilityBadge" class="reliability high">可靠性较高</span>
           </div>
+          <!-- 低可靠性时的提示通知：四分类外情绪占比过高 -->
           <p id="excludedNotice" class="notice" hidden></p>
+          <!-- ====== 四分类概率条 ======
+               每行包含：情绪名称 + 进度条 + 百分比数值
+               四种情绪分别对应不同颜色：中性灰、开心绿、愤怒红、悲伤蓝 -->
           <div id="probabilities" class="probabilities">
             <div class="probability-row" data-emotion="neutral"><span>中性</span><div><i></i></div><b>0%</b></div>
             <div class="probability-row" data-emotion="happy"><span>开心</span><div><i></i></div><b>0%</b></div>
             <div class="probability-row" data-emotion="anger"><span>愤怒</span><div><i></i></div><b>0%</b></div>
             <div class="probability-row" data-emotion="sad"><span>悲伤</span><div><i></i></div><b>0%</b></div>
           </div>
+          <!-- ====== 情绪时间轴 ======
+               每个分段对应一段3秒音频的检测结果
+               按钮颜色映射情绪类别，低可靠性按钮半透明
+               点击分段按钮可跳转音频播放位置并查看详细概率 -->
           <div class="timeline-heading"><h3>情绪时间轴</h3><span id="voicedRatio"></span></div>
           <div id="timeline" class="timeline" aria-label="分段情绪时间轴"></div>
+          <!-- 分段详情：选中时间轴片段后显示该段的具体信息 -->
           <div id="segmentDetail" class="segment-detail">选择时间轴片段查看详情</div>
         </div>
       </section>
     </main>
 
+    <!-- ==================== 底部声明 ====================
+         强调本地处理、无账号、无历史记录的隐私理念
+         链接到模型限制说明页面 -->
     <footer><span>本地优先 · 无账号 · 无历史记录</span><a href="/docs/model-limitations" aria-label="查看模型限制">模型结果仅供技术演示</a></footer>
+    <!-- 延迟加载应用脚本，确保DOM完整后才执行 -->
     <script src="/static/app.js" defer></script>
   </body>
 </html>
