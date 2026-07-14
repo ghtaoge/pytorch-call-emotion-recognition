@@ -21,6 +21,7 @@ from pydantic import ValidationError
 
 from app.errors import AppError
 from app.schemas import (
+    AnalyzeUrlRequest,
     AnalysisResult,
     EmotionProbabilities,
     ErrorEvent,
@@ -275,3 +276,35 @@ def test_app_error_exposes_only_safe_public_fields() -> None:
         "public_message": "音频无效",  # 面向用户的消息
         "status_code": 422,  # HTTP 状态码
     }
+
+
+def test_analyze_url_request_accepts_valid_urls() -> None:
+    """验证 AnalyzeUrlRequest 接受合法的 http/https URL。"""
+    for url in ["http://example.com/audio.wav", "https://cdn.example.com/file.mp3"]:
+        req = AnalyzeUrlRequest(url=url)
+        assert req.url == url
+
+
+def test_analyze_url_request_rejects_invalid_protocols() -> None:
+    """验证 AnalyzeUrlRequest 拒绝非 http/https 协议的 URL。"""
+    for url in ["ftp://example.com/audio.wav", "file:///tmp/audio.wav", "just-a-string"]:
+        with pytest.raises(ValidationError):
+            AnalyzeUrlRequest(url=url)
+
+
+def test_analyze_url_request_rejects_blank_url() -> None:
+    """验证 AnalyzeUrlRequest 拒绝空白 URL。"""
+    with pytest.raises(ValidationError):
+        AnalyzeUrlRequest(url="   ")
+
+
+def test_analyze_url_request_rejects_extra_fields() -> None:
+    """验证 AnalyzeUrlRequest 拒绝额外字段（严格模式）。"""
+    with pytest.raises(ValidationError):
+        AnalyzeUrlRequest(url="http://example.com/audio.wav", extra="nope")
+
+
+def test_analyze_url_request_strips_whitespace() -> None:
+    """验证 AnalyzeUrlRequest 对 URL 执行空白去除。"""
+    req = AnalyzeUrlRequest(url="  https://example.com/audio.wav  ")
+    assert req.url == "https://example.com/audio.wav"

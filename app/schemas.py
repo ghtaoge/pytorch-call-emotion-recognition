@@ -311,3 +311,34 @@ class ErrorEvent(ContractModel):
     """
     type: Literal["error"]  # 事件类型（固定为 "error"）
     error: PublicError      # 公开错误对象
+
+
+class AnalyzeUrlRequest(ContractModel):
+    """
+    URL 音频分析请求 — 接收音频文件 URL 地址
+
+    字段说明：
+    - url : 音频文件 URL，必须以 http:// 或 https:// 开头
+            支持任意公网和内网 URL，不做私有 IP 过滤
+
+    安全设计：
+    - 协议白名单：仅允许 http 和 https，拒绝 file、ftp 等协议
+    - URL 两端空白自动去除，防止用户误输入前后空格
+    """
+    url: str  # 音频文件 URL
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, value: str) -> str:
+        """
+        字段级校验：URL 协议白名单 + 空白去除
+
+        校验规则：
+        1. 去除两端空白（防止用户误输入前后空格）
+        2. URL 必须以 http:// 或 https:// 开头
+           拒绝其他协议（file://、ftp:// 等）防止 SSRF
+        """
+        value = value.strip()
+        if not value.startswith(("http://", "https://")):
+            raise ValueError("URL must start with http:// or https://")
+        return value
