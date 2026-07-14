@@ -1,17 +1,20 @@
 """
 test_audio —— 音频波形处理的单元测试
 
-本模块测试 app.audio 中两个核心函数：
+本模块测试 app.audio 中核心函数：
 - normalize_waveform：立体声下混与重采样，将任意音频转为单声道 16kHz
 - segment_waveform：滑动窗口分段，并标记静音段
+- fetch_audio_from_url：从 URL 下载音频文件
 
-同时验证对异常输入（非有限采样值）的拒绝。
+同时验证对异常输入（非有限采样值、非法协议、超限大小等）的拒绝。
 """
+
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
 
-from app.audio import normalize_waveform, segment_waveform
+from app.audio import fetch_audio_from_url, normalize_waveform, segment_waveform
 from app.config import Settings
 from app.errors import AppError
 
@@ -55,9 +58,118 @@ def test_segment_keeps_tail_and_marks_silence() -> None:
 def test_normalize_rejects_nonfinite() -> None:
     """验证 normalize_waveform 拒绝包含非有限值的波形。
 
-    传入包含 NaN 的波形时，应抛出 AppError，错误信息匹配"无效采样值"。
+    传入包含 NaN 的波形时，应抛出 AppError，错误码 INVALID_AUDIO。
     这是防止模型推理出现异常的必要保护。
     """
-    with pytest.raises(AppError, match="无效采样值"):
-        # 传入包含 NaN 的波形，应被拒绝
+    with pytest.raises(AppError) as exc_info:
         normalize_waveform(np.array([0.0, np.nan], dtype=np.float32), 16000)
+    assert exc_info.value.code == "INVALID_AUDIO"
+
+
+def _make_mock_client(mock_response: MagicMock) -> MagicMock:
+    """构造一个模拟 httpx.Client，其 stream() 返回 mock_response。"""
+    mock_client = MagicMock()
+    mock_client.__enter__ = MagicMock(return_value=mock_client)
+    mock_client.__exit__ = MagicMock(return_value=False)
+    mock_client.stream.return_value.__enter__ = MagicMock(return_value=mock_response)
+    mock_client.stream.return_value.__exit__ = MagicMock(return_value=False)
+    return mock_client
+
+
+def test_fetch_audio_from_url_downloads_successfully(monkeypatch) -> None:
+    """验证 fetch_audio_from_url 正常下载音频并推断文件名。"""
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.headers = {"content-disposition": "attachment; filename=\"test_audio.wav\""}
+    mock_response.iter_bytes.return_value = [b"fake audio data"]
+
+    mock_client = _make_mock_client(mock_response)
+    monkeypatch.setattr("app.audio.httpx.Client", lambda **kwargs: mock_client)
+
+    data, filename = fetch_audio_from_url("https://example.com/audio.wav", Settings())
+    assert data == b"fake audio data"
+    assert filename == "test_audio.wav"
+
+
+def test_fetch_audio_from_url_infers_filename_from_url_path(monkeypatch) -> None:
+    """验证无 Content-Disposition 时从 URL 路径推断文件名。"""
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.headers = {}
+    mock_response.iter_bytes.return_value = [b"audio data"]
+
+    mock_client = _make_mock_client(mock_response)
+    monkeypatch.setattr("app.audio.httpx.Client", lambda **kwargs: mock_client)
+
+    data, filename = fetch_audio_from_url("https://cdn.example.com/path/to/file.mp3", Settings())
+    assert filename == "file.mp3"
+
+
+def test_fetch_audio_from_url_uses_fallback_filename(monkeypatch) -> None:
+    """验证无 Content-Disposition 且无路径扩展名时使用兜底文件名。"""
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.headers = {}
+    mock_response.iter_bytes.return_value = [b"audio data"]
+
+    mock_client = _make_mock_client(mock_response)
+    monkeypatch.setattr("app.audio.httpx.Client", lambda **kwargs: mock_client)
+
+    data, filename = fetch_audio_from_url("https://example.com/api/audio", Settings())
+    assert filename == "downloaded_audio"
+
+
+def test_fetch_audio_from_url_rejects_invalid_protocol() -> None:
+    """验证 fetch_audio_from_url 拒绝非 http/https 协议的 URL。"""
+    with pytest.raises(AppError) as exc_info:
+        fetch_audio_from_url("ftp://example.com/audio.wav", Settings())
+    assert exc_info.value.code == "INVALID_URL"
+
+
+def test_fetch_audio_from_url_rejects_oversized_file(monkeypatch) -> None:
+    """验证 fetch_audio_from_url 拒绝超过大小限制的下载。"""
+    # 创建超过 50MB 的模拟数据块
+    big_chunk = b"x" * (51 * 1024 * 1024)
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.headers = {}
+    mock_response.iter_bytes.return_value = [big_chunk]
+
+    mock_client = _make_mock_client(mock_response)
+    monkeypatch.setattr("app.audio.httpx.Client", lambda **kwargs: mock_client)
+
+    with pytest.raises(AppError) as exc_info:
+        fetch_audio_from_url("https://example.com/big.wav", Settings())
+    assert exc_info.value.code == "URL_FILE_TOO_LARGE"
+
+
+def test_fetch_audio_from_url_handles_download_failure(monkeypatch) -> None:
+    """验证 fetch_audio_from_url 处理下载失败（网络错误）。"""
+    import httpx
+
+    mock_client = MagicMock()
+    mock_client.__enter__ = MagicMock(return_value=mock_client)
+    mock_client.__exit__ = MagicMock(return_value=False)
+    mock_client.stream.side_effect = httpx.ConnectError("Connection refused")
+
+    monkeypatch.setattr("app.audio.httpx.Client", lambda **kwargs: mock_client)
+
+    with pytest.raises(AppError) as exc_info:
+        fetch_audio_from_url("https://unreachable.example.com/audio.wav", Settings())
+    assert exc_info.value.code == "URL_DOWNLOAD_FAILED"
+
+
+def test_fetch_audio_from_url_handles_timeout(monkeypatch) -> None:
+    """验证 fetch_audio_from_url 处理下载超时。"""
+    import httpx
+
+    mock_client = MagicMock()
+    mock_client.__enter__ = MagicMock(return_value=mock_client)
+    mock_client.__exit__ = MagicMock(return_value=False)
+    mock_client.stream.side_effect = httpx.ReadTimeout("Read timed out")
+
+    monkeypatch.setattr("app.audio.httpx.Client", lambda **kwargs: mock_client)
+
+    with pytest.raises(AppError) as exc_info:
+        fetch_audio_from_url("https://slow.example.com/audio.wav", Settings())
+    assert exc_info.value.code == "URL_DOWNLOAD_TIMEOUT"

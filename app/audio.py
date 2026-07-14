@@ -29,11 +29,13 @@ import math
 import os
 import subprocess
 import tempfile
+import urllib.parse
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
 
+import httpx
 import imageio_ffmpeg
 import numpy as np
 from scipy.signal import resample_poly
@@ -141,6 +143,145 @@ def read_limited_stream(stream: BinaryIO, max_bytes: int) -> bytes:
     if not chunks:
         raise AppError("EMPTY_FILE", "请选择有效的音频文件", 400)
     return b"".join(chunks)
+
+
+def _extract_filename_from_headers(headers: httpx.Headers) -> str | None:
+    """
+    从 Content-Disposition header 提取文件名
+
+    优先级：filename*（RFC 5987 编码） > filename
+
+    参数：
+        headers — httpx 响应头对象
+
+    返回：
+        提取的文件名字符串，若无 Content-Disposition 则返回 None
+    """
+    disposition = headers.get("content-disposition", "")
+    if not disposition:
+        return None
+    # 尝试提取 filename*（RFC 5987 编码，如 filename*=UTF-8''test.wav）
+    for part in disposition.split(";"):
+        part = part.strip()
+        if part.lower().startswith("filename*"):
+            try:
+                _, _, encoded = part.split("'", 2)
+                return urllib.parse.unquote(encoded.strip())
+            except ValueError:
+                continue
+    # 尝试提取 filename（基础格式，如 filename="test.wav"）
+    for part in disposition.split(";"):
+        part = part.strip()
+        if part.lower().startswith("filename"):
+            value = part.split("=", 1)[1].strip().strip('"').strip("'")
+            if value:
+                return value
+    return None
+
+
+def _extract_filename_from_url(url: str) -> str:
+    """
+    从 URL 路径推断文件名
+
+    提取 URL 路径的最后一段作为文件名。
+    若路径为空或最后一段无支持的音频扩展名，返回兜底名 "downloaded_audio"。
+
+    参数：
+        url — 音频文件 URL
+
+    返回：
+        推断的文件名字符串
+    """
+    path = urllib.parse.urlparse(url).path
+    if path:
+        basename = path.rstrip("/").rsplit("/", 1)[-1]
+        if basename and any(basename.lower().endswith(s) for s in SUPPORTED_SUFFIXES):
+            return basename
+    return "downloaded_audio"
+
+
+def fetch_audio_from_url(url: str, settings: Settings) -> tuple[bytes, str]:
+    """
+    从 URL 下载音频文件，返回字节内容与推断的文件名
+
+    此函数将远程音频文件下载到内存，供 decode_audio() 处理。
+    采用流式下载 + 实时大小检查策略，防止恶意大文件耗尽内存。
+
+    安全设计：
+    - 协议白名单：仅允许 http:// 和 https://
+    - 不过滤私有 IP（需求明确支持内网 URL）
+    - 流式下载实时检查大小不超过 max_bytes
+    - 重定向限制防止无限循环
+
+    参数：
+        url — 音频文件 URL
+        settings — 全局配置，提供 max_bytes、url_download_timeout_seconds、url_max_redirects
+
+    返回：
+        (bytes, inferred_filename) — 音频字节内容与推断的文件名
+
+    异常：
+        AppError("INVALID_URL", 400) — URL 协议不合法
+        AppError("URL_DOWNLOAD_FAILED", 400) — 下载失败
+        AppError("URL_DOWNLOAD_TIMEOUT", 408) — 下载超时
+        AppError("URL_FILE_TOO_LARGE", 413) — 下载文件过大
+    """
+    # 协议白名单校验
+    stripped_url = url.strip()
+    if not stripped_url.startswith(("http://", "https://")):
+        raise AppError("INVALID_URL", "URL 必须以 http:// 或 https:// 开头", 400)
+
+    timeout_config = httpx.Timeout(
+        connect=10.0,
+        read=settings.url_download_timeout_seconds,
+        write=10.0,
+        pool=10.0,
+    )
+
+    try:
+        with httpx.Client(
+            timeout=timeout_config,
+            max_redirects=settings.url_max_redirects,
+            follow_redirects=True,
+        ) as client:
+            with client.stream("GET", stripped_url) as response:
+                if response.status_code >= 400:
+                    raise AppError(
+                        "URL_DOWNLOAD_FAILED",
+                        f"音频下载失败（HTTP {response.status_code}）",
+                        400,
+                    )
+                # 推断文件名：优先 Content-Disposition，其次 URL 路径，兜底默认
+                filename = _extract_filename_from_headers(response.headers)
+                if filename is None:
+                    filename = _extract_filename_from_url(stripped_url)
+
+                # 流式下载 + 实时大小检查
+                chunks: list[bytes] = []
+                total = 0
+                for chunk in response.iter_bytes(chunk_size=READ_CHUNK_SIZE):
+                    total += len(chunk)
+                    if total > settings.max_bytes:
+                        raise AppError("URL_FILE_TOO_LARGE", "音频文件不能超过 50 MB", 413)
+                    chunks.append(chunk)
+
+                if not chunks:
+                    raise AppError("URL_DOWNLOAD_FAILED", "下载的音频文件为空", 400)
+
+                return b"".join(chunks), filename
+
+    except httpx.TimeoutException as exc:
+        raise AppError("URL_DOWNLOAD_TIMEOUT", "音频下载超时，请检查 URL 或重试", 408) from exc
+    except httpx.HTTPStatusError as exc:
+        raise AppError(
+            "URL_DOWNLOAD_FAILED", f"音频下载失败（HTTP {exc.response.status_code})", 400
+        ) from exc
+    except (httpx.ConnectError, httpx.NetworkError) as exc:
+        raise AppError("URL_DOWNLOAD_FAILED", "音频下载失败，请检查 URL 是否可访问", 400) from exc
+    except AppError:
+        raise  # 已转换的 AppError 直接抛出，不二次包装
+    except Exception as exc:
+        raise AppError("URL_DOWNLOAD_FAILED", "音频下载失败，请重试", 400) from exc
 
 
 def normalize_waveform(
