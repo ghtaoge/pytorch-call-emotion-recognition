@@ -98,7 +98,7 @@ button:focus-visible, input:focus-visible, .dropzone:focus-within { outline: 3px
    272px宽42px高，3px内边距形成视觉凹陷
    双栏网格均分两个按钮，浅灰底色#ecece8模拟轨道
    选中按钮：白色底色 + 微阴影 + 粗体，形成凸起效果 */
-.segmented { width: 272px; height: 42px; padding: 3px; margin: 24px 0 18px; display: grid; grid-template-columns: 1fr 1fr; background: #ecece8; border-radius: 6px; }.segmented button { border: 0; border-radius: 4px; color: var(--muted); background: transparent; }.segmented button[aria-selected="true"] { color: var(--ink); background: #fff; box-shadow: 0 1px 3px rgba(20,25,30,.12); font-weight: 600; }
+.segmented { width: 408px; height: 42px; padding: 3px; margin: 24px 0 18px; display: grid; grid-template-columns: 1fr 1fr 1fr; background: #ecece8; border-radius: 6px; }.segmented button { border: 0; border-radius: 4px; color: var(--muted); background: transparent; }.segmented button[aria-selected="true"] { color: var(--ink); background: #fff; box-shadow: 0 1px 3px rgba(20,25,30,.12); font-weight: 600; }
 
 /* ====== 音频来源面板 ======
    最小高度210px，为内容提供统一垂直空间 */
@@ -113,6 +113,22 @@ button:focus-visible, input:focus-visible, .dropzone:focus-within { outline: 3px
 /* ====== 录音面板 ======
    居中布局，1px实线边框 + 圆角 + 浅灰底色，与拖拽区域视觉统一 */
 .record-panel { display: grid; place-items: center; border: 1px solid var(--line); border-radius: var(--radius); background: #fafaf8; }
+
+/* ====== URL 输入面板 ======
+   居中布局，1px实线边框 + 圆角 + 浅灰底色，与录音面板视觉统一 */
+.url-panel { display: grid; place-items: center; border: 1px solid var(--line); border-radius: var(--radius); background: #fafaf8; }
+
+/* URL 输入字段标签：居中排列标题和输入框 */
+.url-field { width: min(460px,100%); display: flex; flex-direction: column; gap: 10px; padding: 32px 0; text-align: center; }
+
+/* URL 输入框：42px高，全宽，1px边框 + 圆角4px，浅灰底色
+   焦点时：朱红描边 + 微红白底色 */
+.url-field input { height: 42px; width: 100%; padding: 0 14px; border: 1px solid var(--line); border-radius: 4px; background: #fff; color: var(--ink); font-size: 14px; }
+.url-field input:focus { outline: none; border-color: var(--vermilion); box-shadow: 0 0 0 3px rgba(198,60,47,.12); }
+.url-field input::placeholder { color: var(--muted); }
+
+/* URL 格式提示：辅助色12px */
+.url-hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
 
 /* 录音器布局：三栏网格（圆形按钮 | 状态文字 | 操作按钮）
    最大宽度460px，间距18px */
