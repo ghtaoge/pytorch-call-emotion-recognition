@@ -106,7 +106,7 @@ def test_fetch_audio_from_url_infers_filename_from_url_path(monkeypatch) -> None
 
 
 def test_fetch_audio_from_url_uses_fallback_filename(monkeypatch) -> None:
-    """验证无 Content-Disposition 且无路径扩展名时使用兜底文件名。"""
+    """验证无 Content-Disposition 且无路径扩展名时使用兜底文件名（.wav 后缀）。"""
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.headers = {}
@@ -116,7 +116,21 @@ def test_fetch_audio_from_url_uses_fallback_filename(monkeypatch) -> None:
     monkeypatch.setattr("app.audio.httpx.Client", lambda **kwargs: mock_client)
 
     data, filename = fetch_audio_from_url("https://example.com/api/audio", Settings())
-    assert filename == "downloaded_audio"
+    assert filename == "downloaded_audio.wav"
+
+
+def test_fetch_audio_from_url_infers_extension_from_content_type(monkeypatch) -> None:
+    """验证从 Content-Type header 推断文件扩展名。"""
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.headers = {"content-type": "audio/mp3"}
+    mock_response.iter_bytes.return_value = [b"audio data"]
+
+    mock_client = _make_mock_client(mock_response)
+    monkeypatch.setattr("app.audio.httpx.Client", lambda **kwargs: mock_client)
+
+    data, filename = fetch_audio_from_url("https://example.com/api/audio", Settings())
+    assert filename == "downloaded_audio.mp3"
 
 
 def test_fetch_audio_from_url_rejects_invalid_protocol() -> None:

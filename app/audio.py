@@ -200,6 +200,49 @@ def _extract_filename_from_url(url: str) -> str:
     return "downloaded_audio"
 
 
+# Content-Type 到音频扩展名的映射 — 用于从响应头推断文件格式
+# 当 URL 路径和 Content-Disposition 都无法提供扩展名时，使用此映射
+CONTENT_TYPE_SUFFIX_MAP = {
+    "audio/wav": ".wav",
+    "audio/x-wav": ".wav",
+    "audio/wave": ".wav",
+    "audio/mp3": ".mp3",
+    "audio/mpeg": ".mp3",
+    "audio/mpeg3": ".mp3",
+    "audio/x-mpeg": ".mp3",
+    "audio/flac": ".flac",
+    "audio/x-flac": ".flac",
+    "audio/ogg": ".ogg",
+    "audio/x-ogg": ".ogg",
+    "audio/vorbis": ".ogg",
+    "audio/mp4": ".m4a",
+    "audio/x-m4a": ".m4a",
+    "audio/aac": ".m4a",
+    "audio/webm": ".webm",
+    "audio/x-webm": ".webm",
+}
+
+
+def _infer_suffix_from_content_type(content_type: str) -> str | None:
+    """
+    从 Content-Type header 推断音频文件扩展名
+
+    当 URL 路径和 Content-Disposition 都无法提供文件扩展名时，
+    通过 Content-Type（如 audio/mp3）推断对应的扩展名（如 .mp3）。
+
+    参数：
+        content_type — HTTP 响应的 Content-Type header 值（可能包含 charset 等参数）
+
+    返回：
+        推断的扩展名（如 ".mp3"），若无法匹配则返回 None
+    """
+    if not content_type:
+        return None
+    # 去除 Content-Type 中的参数部分（如 "; charset=utf-8"），只保留 MIME 类型
+    mime = content_type.split(";")[0].strip().lower()
+    return CONTENT_TYPE_SUFFIX_MAP.get(mime)
+
+
 def fetch_audio_from_url(url: str, settings: Settings) -> tuple[bytes, str]:
     """
     从 URL 下载音频文件，返回字节内容与推断的文件名
@@ -243,6 +286,7 @@ def fetch_audio_from_url(url: str, settings: Settings) -> tuple[bytes, str]:
             timeout=timeout_config,
             max_redirects=settings.url_max_redirects,
             follow_redirects=True,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
         ) as client:
             with client.stream("GET", stripped_url) as response:
                 if response.status_code >= 400:
@@ -251,10 +295,22 @@ def fetch_audio_from_url(url: str, settings: Settings) -> tuple[bytes, str]:
                         f"音频下载失败（HTTP {response.status_code}）",
                         400,
                     )
-                # 推断文件名：优先 Content-Disposition，其次 URL 路径，兜底默认
+                # 推断文件名：优先 Content-Disposition，其次 URL 路径，
+                # 再次从 Content-Type 推断扩展名，兜底使用 .wav
                 filename = _extract_filename_from_headers(response.headers)
                 if filename is None:
                     filename = _extract_filename_from_url(stripped_url)
+                # 若文件名无合法音频扩展名，尝试从 Content-Type 推断
+                if not any(filename.lower().endswith(s) for s in SUPPORTED_SUFFIXES):
+                    content_type_suffix = _infer_suffix_from_content_type(
+                        response.headers.get("content-type", "")
+                    )
+                    if content_type_suffix:
+                        filename = filename + content_type_suffix
+                    else:
+                        # 最终兜底：使用 .wav 扩展名
+                        # FFmpeg 可以通过探测内容识别实际格式，.wav 后缀不会阻止解码
+                        filename = filename + ".wav"
 
                 # 流式下载 + 实时大小检查
                 chunks: list[bytes] = []
