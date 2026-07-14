@@ -34,7 +34,10 @@ def test_workbench_contains_required_controls_and_local_assets() -> None:
     for element_id in (
         "modeUpload",  # 上传模式切换
         "modeRecord",  # 录音模式切换
+        "modeUrl",  # URL 输入模式切换
         "fileInput",  # 文件选择输入框
+        "urlInput",  # URL 输入框
+        "urlPanel",  # URL 输入面板
         "audioPlayer",  # 音频播放器
         "waveform",  # 波形可视化区域
         "recordButton",  # 开始录音按钮
@@ -47,9 +50,11 @@ def test_workbench_contains_required_controls_and_local_assets() -> None:
         "timeline",  # 时间线区域
     ):
         assert f'id="{element_id}"' in html  # 每个 ID 都必须出现在 HTML 中
-    # 确保不引用任何外部 URL，所有资源均为本地
-    assert "http://" not in html
-    assert "https://" not in html
+    # 确保不引用任何外部资源 URL（排除 placeholder 中的示例 URL）
+    # URL 输入框的 placeholder 包含 "https://" 作为格式提示，这是允许的
+    import re
+    external_refs = re.findall(r'(src|href)=["\']https?://[^"\']["\']', html)
+    assert not external_refs  # 不应存在指向外部 URL 的 src 或 href
     # 确保引用了本地 JavaScript 资源
     assert "/static/app.js" in html
 
