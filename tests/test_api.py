@@ -18,10 +18,12 @@ import numpy as np
 from fastapi.testclient import TestClient
 
 import app.main as main_module
-from app.audio import DecodedAudio
+from app.audio import DecodedAudio, fetch_audio_from_url
 from app.config import Settings
+from app.errors import AppError
 from app.schemas import (
     AnalysisResult,
+    AnalyzeUrlRequest,
     EmotionProbabilities,
     ProgressEvent,
     Reliability,
@@ -134,3 +136,60 @@ def test_static_workbench_is_served() -> None:
     response = client.get("/")
     assert response.status_code == 200  # 页面应可正常访问
     assert "声析" in response.text  # 页面应包含品牌名称
+
+
+def test_analyze_url_stream_returns_progress_and_result(monkeypatch) -> None:
+    """验证 URL 分析端点返回 NDJSON 格式的进度与结果事件。"""
+    # Mock fetch_audio_from_url 返回模拟音频字节
+    monkeypatch.setattr(
+        main_module,
+        "fetch_audio_from_url",
+        lambda _url, _settings: (b"synthetic_audio_data", "sample.wav"),
+    )
+    # Mock decode_audio 返回合成的解码音频
+    monkeypatch.setattr(
+        main_module,
+        "decode_audio",
+        lambda _data, _filename, _settings: DecodedAudio(np.ones(16000, dtype=np.float32), 16000),
+    )
+    client = TestClient(main_module.create_app(Settings(), FakeServices()))  # type: ignore[arg-type]
+    with client.stream(
+        "POST", "/api/analyze-url", json={"url": "https://example.com/audio.wav"}
+    ) as response:
+        lines = list(response.iter_lines())
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/x-ndjson")
+    assert '"type":"progress"' in lines[0]
+    assert '"type":"result"' in lines[-1]
+
+
+def test_analyze_url_rejects_invalid_url_format() -> None:
+    """验证 URL 分析端点拒绝非法 URL 格式。"""
+    client = TestClient(main_module.create_app(Settings(), FakeServices()))  # type: ignore[arg-type]
+    response = client.post("/api/analyze-url", json={"url": "ftp://example.com/audio.wav"})
+    assert response.status_code == 422  # Pydantic validation error for invalid protocol
+
+
+def test_analyze_url_handles_download_failure(monkeypatch) -> None:
+    """验证 URL 分析端点处理下载失败。"""
+    monkeypatch.setattr(
+        main_module,
+        "fetch_audio_from_url",
+        lambda _url, _settings: (_ for _ in ()).throw(AppError("URL_DOWNLOAD_FAILED", "下载失败", 400)),
+    )
+    client = TestClient(main_module.create_app(Settings(), FakeServices()))  # type: ignore[arg-type]
+    response = client.post("/api/analyze-url", json={"url": "https://unreachable.example.com/audio.wav"})
+    assert response.status_code == 400
+
+
+def test_analyze_url_returns_429_when_busy() -> None:
+    """验证 URL 分析端点在并发冲突时返回 429。"""
+    # 创建应用并手动获取分析锁，模拟并发占用
+    app = main_module.create_app(Settings())
+    lock_acquired = app.state.analysis_lock.acquire(blocking=False)
+    assert lock_acquired
+    client = TestClient(app)
+    response = client.post("/api/analyze-url", json={"url": "https://example.com/audio.wav"})
+    assert response.status_code == 429
+    # 释放锁
+    app.state.analysis_lock.release()

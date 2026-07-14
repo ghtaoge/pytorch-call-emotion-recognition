@@ -53,11 +53,11 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.analyzer import EmotionAnalyzer
-from app.audio import decode_audio, read_limited_stream
+from app.audio import decode_audio, fetch_audio_from_url, read_limited_stream
 from app.config import Settings, get_settings
 from app.errors import AppError
 from app.model import EmotionModelRuntime
-from app.schemas import ErrorEvent, HealthResponse, PublicError
+from app.schemas import AnalyzeUrlRequest, ErrorEvent, HealthResponse, PublicError
 
 # 应用级日志器：用于记录分析过程中的警告和错误
 # 默认不输出堆栈信息，避免第三方库异常（如 FFmpeg）携带临时文件路径
@@ -346,6 +346,74 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         # 返回 NDJSON 流式响应
         # media_type="application/x-ndjson" 是 NDJSON 的标准 MIME 类型
         # 前端使用 ReadableStream 逐行读取，实现实时进度更新
+        return StreamingResponse(stream(), media_type="application/x-ndjson")
+
+    @application.post("/api/analyze-url")
+    def analyze_url(request: AnalyzeUrlRequest) -> StreamingResponse:
+        """
+        URL 音频分析端点 — 从 URL 下载音频并执行情绪分析
+
+        此端点是新增的 URL 输入方式，接收 JSON body 中的 URL 参数，
+        下载音频后复用完整的分析流程，返回 NDJSON 流式响应。
+
+        流程：
+        1. 获取分析锁 → 429 if busy（同现有 /api/analyze）
+        2. 从 URL 下载音频 → fetch_audio_from_url 流式下载 + 实时大小检查
+        3. FFmpeg 解码 → decode_audio（复用现有流程）
+        4. 流式输出分析结果 → 复用 iter_analysis + NDJSON 流式传输
+        5. 释放分析锁 → finally 块确保释放
+
+        锁的释放策略（同现有 /api/analyze 的两阶段）：
+        - 下载/解码阶段异常：except 块手动释放
+        - 流式阶段异常：finally 块自动释放
+        """
+        # 尝试获取分析锁：blocking=False 确保不阻塞等待，立即返回 429
+        if not application.state.analysis_lock.acquire(blocking=False):
+            raise AppError("ANALYSIS_BUSY", "已有分析任务正在进行，请稍后重试", 429)
+        try:
+            # 从 URL 下载音频文件，返回字节内容与推断的文件名
+            data, filename = fetch_audio_from_url(request.url, resolved_settings)
+            # FFmpeg 解码：将下载的音频数据转为 16kHz 单声道浮点波形
+            decoded = decode_audio(data, filename, resolved_settings)
+        except Exception:
+            # 下载/解码阶段异常：手动释放锁，因为 stream() 尚未创建
+            application.state.analysis_lock.release()
+            raise
+
+        def stream() -> Iterator[str]:
+            """
+            流式输出生成器 — 与 /api/analyze 的 stream() 完全相同的逻辑
+
+            逐段产出 NDJSON 行：status → progress... → result
+            异常处理：AppError 发送 ErrorEvent，其他异常发送 INTERNAL_ERROR
+            finally 块确保分析锁释放
+            """
+            try:
+                for event in resolved_services.analyzer.iter_analysis(decoded):
+                    yield event.model_dump_json() + "\n"
+            except AppError as exc:
+                logger.warning("analysis_failed code=%s", exc.code)
+                yield (
+                    ErrorEvent(
+                        type="error",
+                        error=PublicError(code=exc.code, message=exc.public_message),
+                    ).model_dump_json()
+                    + "\n"
+                )
+            except Exception:
+                logger.error("analysis_failed code=INTERNAL_ERROR")
+                yield (
+                    ErrorEvent(
+                        type="error",
+                        error=PublicError(code="INTERNAL_ERROR", message="服务暂时不可用，请重试"),
+                    ).model_dump_json()
+                    + "\n"
+                )
+            finally:
+                # 确保分析锁一定被释放，即使发生异常也不会造成死锁
+                application.state.analysis_lock.release()
+
+        # 返回 NDJSON 流式响应
         return StreamingResponse(stream(), media_type="application/x-ndjson")
 
     return application
