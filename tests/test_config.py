@@ -26,6 +26,8 @@ ENVIRONMENT_KEYS = (
     "SILENCE_RMS_THRESHOLD",
     "HOST",
     "PORT",
+    "URL_DOWNLOAD_TIMEOUT_SECONDS",
+    "URL_MAX_REDIRECTS",
 )
 
 
@@ -63,6 +65,8 @@ def test_settings_use_safe_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.silence_rms_threshold == 0.01  # 默认静音阈值
     assert settings.host == "127.0.0.1"  # 默认仅本地访问
     assert settings.port == 8000  # 默认端口
+    assert settings.url_download_timeout_seconds == 60.0  # 默认下载超时
+    assert settings.url_max_redirects == 5  # 默认重定向次数
 
 
 def test_settings_reject_hop_larger_than_window() -> None:
@@ -84,6 +88,8 @@ def test_settings_reject_hop_larger_than_window() -> None:
         ("hop_seconds", 0),  # 滑动步长不能为零
         ("port", 0),  # 端口不能为零
         ("port", 65_536),  # 端口不能超过 65535
+        ("url_download_timeout_seconds", 0),  # 下载超时不能为零
+        ("url_max_redirects", 0),  # 重定向次数不能为零
         ("silence_rms_threshold", -0.01),  # 阈值不能为负数
         ("silence_rms_threshold", 1.01),  # 阈值不能超过 1.0
         ("model_id", "  "),  # 模型 ID 不能为纯空白

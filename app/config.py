@@ -48,6 +48,8 @@ class Settings(BaseSettings):
                               低于此值的片段视为静音，跳过模型推理以节省计算
     - host              : 服务监听地址，默认仅本地访问（127.0.0.1）
     - port              : 服务监听端口，默认 8000
+    - url_download_timeout_seconds : URL 音频下载超时（秒），默认 60
+    - url_max_redirects : URL 重定向最大次数，默认 5
     """
 
     model_config = SettingsConfigDict(
@@ -79,6 +81,11 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     # 服务监听端口
     port: Port = 8000
+    # URL 音频下载超时：默认 60 秒 — 足以覆盖大多数网络延迟，
+    # 同时不至于让单个请求长时间阻塞服务
+    url_download_timeout_seconds: PositiveFloat = 60.0
+    # URL 重定向最大次数：限制重定向链长度，防止无限循环
+    url_max_redirects: PositiveInt = 5
 
     @field_validator("model_id", "host")
     @classmethod
