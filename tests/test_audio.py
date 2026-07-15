@@ -80,7 +80,7 @@ def test_fetch_audio_from_url_downloads_successfully(monkeypatch) -> None:
     """验证 fetch_audio_from_url 正常下载音频并推断文件名。"""
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.headers = {"content-disposition": "attachment; filename=\"test_audio.wav\""}
+    mock_response.headers = {"content-disposition": 'attachment; filename="test_audio.wav"'}
     mock_response.iter_bytes.return_value = [b"fake audio data"]
 
     mock_client = _make_mock_client(mock_response)
@@ -101,7 +101,7 @@ def test_fetch_audio_from_url_infers_filename_from_url_path(monkeypatch) -> None
     mock_client = _make_mock_client(mock_response)
     monkeypatch.setattr("app.audio.httpx.Client", lambda **kwargs: mock_client)
 
-    data, filename = fetch_audio_from_url("https://cdn.example.com/path/to/file.mp3", Settings())
+    _data, filename = fetch_audio_from_url("https://cdn.example.com/path/to/file.mp3", Settings())
     assert filename == "file.mp3"
 
 
@@ -115,7 +115,7 @@ def test_fetch_audio_from_url_uses_fallback_filename(monkeypatch) -> None:
     mock_client = _make_mock_client(mock_response)
     monkeypatch.setattr("app.audio.httpx.Client", lambda **kwargs: mock_client)
 
-    data, filename = fetch_audio_from_url("https://example.com/api/audio", Settings())
+    _data, filename = fetch_audio_from_url("https://example.com/api/audio", Settings())
     assert filename == "downloaded_audio.wav"
 
 
@@ -129,7 +129,7 @@ def test_fetch_audio_from_url_infers_extension_from_content_type(monkeypatch) ->
     mock_client = _make_mock_client(mock_response)
     monkeypatch.setattr("app.audio.httpx.Client", lambda **kwargs: mock_client)
 
-    data, filename = fetch_audio_from_url("https://example.com/api/audio", Settings())
+    _data, filename = fetch_audio_from_url("https://example.com/api/audio", Settings())
     assert filename == "downloaded_audio.mp3"
 
 

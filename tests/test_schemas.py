@@ -21,8 +21,8 @@ from pydantic import ValidationError
 
 from app.errors import AppError
 from app.schemas import (
-    AnalyzeUrlRequest,
     AnalysisResult,
+    AnalyzeUrlRequest,
     EmotionProbabilities,
     ErrorEvent,
     ProgressEvent,
@@ -192,7 +192,8 @@ def test_progress_rejects_current_greater_than_total() -> None:
     当已完成段数大于总段数时，进度数据不合理，应触发 ValidationError。
     """
     with pytest.raises(ValidationError):
-        ProgressEvent(type="progress", current=2, total=1, message="处理中")  # current > total，应被拒绝
+        # current 大于 total 时必须被拒绝。
+        ProgressEvent(type="progress", current=2, total=1, message="处理中")
 
 
 def test_result_event_has_stable_default_type() -> None:

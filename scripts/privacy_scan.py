@@ -25,16 +25,16 @@ from pathlib import Path
 # 禁止提交的二进制文件扩展名集合
 # 包括音频文件、二进制数据文件、以及各类模型权重文件格式
 BLOCKED_SUFFIXES = {
-    ".wav",            # WAV 音频文件
-    ".mp3",            # MP3 音频文件
-    ".m4a",            # M4A 音频文件
-    ".flac",           # FLAC 无损音频文件
-    ".ogg",            # OGG 音频文件
-    ".webm",           # WebM 音视频文件
-    ".bin",            # 通用二进制文件
-    ".pt",             # PyTorch 模型权重（旧格式）
-    ".pth",            # PyTorch 模型权重（旧格式别名）
-    ".safetensors",    # HuggingFace safetensors 格式权重
+    ".wav",  # WAV 音频文件
+    ".mp3",  # MP3 音频文件
+    ".m4a",  # M4A 音频文件
+    ".flac",  # FLAC 无损音频文件
+    ".ogg",  # OGG 音频文件
+    ".webm",  # WebM 音视频文件
+    ".bin",  # 通用二进制文件
+    ".pt",  # PyTorch 模型权重（旧格式）
+    ".pth",  # PyTorch 模型权重（旧格式别名）
+    ".safetensors",  # HuggingFace safetensors 格式权重
 }
 
 # 正则表达式规则集合：用于在文本文件中检测敏感信息
@@ -43,10 +43,9 @@ PATTERNS = {
     "PRIVATE_KEY": re.compile(r"BEGIN [A-Z ]*PRIVATE KEY"),
     # 检测 HTTP Bearer Token，匹配长度 >= 20 的令牌字符串
     "BEARER_TOKEN": re.compile(r"Bearer\s+[A-Za-z0-9._-]{20,}"),
-    # 检测 Windows 用户主目录路径泄露（如 C:\Users\xxx）
-    "WINDOWS_HOME": re.compile(r"[A-Za-z]:\\Users\\[^\\\s]+"),
-    # 检测 POSIX 用户主目录路径泄露（如 /home/xxx）
-    # 使用字符串拼接 "/home" 以避免静态分析工具误报
+    # 检测 Windows 用户主目录路径泄露；规则文本使用拼接，避免扫描器匹配自身。
+    "WINDOWS_HOME": re.compile(r"[A-Za-z]:\\" + "Users" + r"\\[^\\\s]+"),
+    # 检测 POSIX 用户主目录路径泄露，同样避免写出连续的目标路径。
     "POSIX_HOME": re.compile("/" + "home" + r"/[^/\s]+"),
 }
 

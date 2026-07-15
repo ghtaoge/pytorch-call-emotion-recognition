@@ -37,10 +37,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 Emotion = Literal["neutral", "happy", "anger", "sad"]
 # ReliabilityReason — 可靠性降低原因的枚举类型（四种固定原因）
 ReliabilityReason = Literal[
-    "OUTSIDE_FOUR_CLASS_SCOPE",   # 被排除类别概率过高，语音更接近 fear/surprise
-    "LOW_TOP_PROBABILITY",        # 顶部概率过低，各类别分布均匀
-    "SMALL_TOP_MARGIN",           # 前两名概率差距过小
-    "LOW_VOICE_COVERAGE",         # 有声覆盖率过低（< 30%）
+    "OUTSIDE_FOUR_CLASS_SCOPE",  # 被排除类别概率过高，语音更接近 fear/surprise
+    "LOW_TOP_PROBABILITY",  # 顶部概率过低，各类别分布均匀
+    "SMALL_TOP_MARGIN",  # 前两名概率差距过小
+    "LOW_VOICE_COVERAGE",  # 有声覆盖率过低（< 30%）
 ]
 # Probability — 概率值（0 ≤ x ≤ 1），用于情绪概率、有声覆盖率等
 Probability = Annotated[float, Field(ge=0, le=1)]
@@ -64,6 +64,7 @@ class ContractModel(BaseModel):
       Settings 接受多余环境变量（因为 .env 文件可能混放其他项目的变量），
       而 ContractModel 拒绝多余字段（因为 API 契约应该严格且明确）。
     """
+
     model_config = ConfigDict(extra="forbid")
 
 
@@ -79,10 +80,11 @@ class EmotionProbabilities(ContractModel):
     （因为总和校验需要 model_validator，而此处四个字段独立声明更简洁）。
     总和校验由 project_probabilities() 的算法逻辑保证（归一化后总和 = 1）。
     """
-    neutral: Probability     # 中性情绪概率
-    happy: Probability       # 开心情绪概率
-    anger: Probability       # 愤怒情绪概率
-    sad: Probability         # 悲伤情绪概率
+
+    neutral: Probability  # 中性情绪概率
+    happy: Probability  # 开心情绪概率
+    anger: Probability  # 愤怒情绪概率
+    sad: Probability  # 悲伤情绪概率
 
 
 class Reliability(ContractModel):
@@ -100,7 +102,8 @@ class Reliability(ContractModel):
               - SMALL_TOP_MARGIN : 前两名概率差距过小
               - LOW_VOICE_COVERAGE : 有声覆盖率过低
     """
-    level: Literal["high", "low"]   # high: 置信度较高; low: 需谨慎参考
+
+    level: Literal["high", "low"]  # high: 置信度较高; low: 需谨慎参考
     reasons: list[ReliabilityReason]  # 降级原因列表，空列表表示 high 级别
 
 
@@ -123,15 +126,16 @@ class SegmentResult(ContractModel):
     - 有声段必须提供完整结果（四个预测字段均不为 None）
     - 此校验防止产生歧义状态（如：静音段携带推理结果，或有声段缺少可靠性评估）
     """
-    index: NonNegativeInt                      # 段序号（从 0 开始）
-    start_seconds: NonNegativeFloat            # 段起始时间（秒）
-    end_seconds: NonNegativeFloat              # 段结束时间（秒）
-    is_silent: bool                            # 是否为静音段
+
+    index: NonNegativeInt  # 段序号（从 0 开始）
+    start_seconds: NonNegativeFloat  # 段起始时间（秒）
+    end_seconds: NonNegativeFloat  # 段结束时间（秒）
+    is_silent: bool  # 是否为静音段
     # 预测字段：有声段必有，静音段必无
     probabilities: EmotionProbabilities | None = None  # 四类概率（静音段为 None）
-    dominant_emotion: Emotion | None = None              # 主导情绪（静音段为 None）
-    reliability: Reliability | None = None               # 可靠性评级（静音段为 None）
-    excluded_probability: Probability | None = None      # 被排除类概率（静音段为 None）
+    dominant_emotion: Emotion | None = None  # 主导情绪（静音段为 None）
+    reliability: Reliability | None = None  # 可靠性评级（静音段为 None）
+    excluded_probability: Probability | None = None  # 被排除类概率（静音段为 None）
 
     @model_validator(mode="after")
     def validate_segment_state(self) -> Self:
@@ -181,15 +185,16 @@ class AnalysisResult(ContractModel):
     - elapsed_ms           : 分析总耗时（毫秒），用于性能监控
     - segments             : 分段详情列表，按时间顺序排列
     """
-    dominant_emotion: Emotion                 # 主导情绪
-    probabilities: EmotionProbabilities       # 加权聚合后的四类概率
-    reliability: Reliability                  # 整体可靠性评级
-    excluded_probability: Probability         # 被排除类（恐惧+惊讶）的加权概率
-    voiced_ratio: Probability                 # 有效语音占比（有效采样点 / 总采样点）
-    duration_seconds: PositiveFloat           # 音频总时长（秒）
-    device: str                               # 推理设备标识（cuda/mps/cpu）
-    elapsed_ms: NonNegativeInt                # 分析耗时（毫秒）
-    segments: list[SegmentResult]             # 分段分析结果列表
+
+    dominant_emotion: Emotion  # 主导情绪
+    probabilities: EmotionProbabilities  # 加权聚合后的四类概率
+    reliability: Reliability  # 整体可靠性评级
+    excluded_probability: Probability  # 被排除类（恐惧+惊讶）的加权概率
+    voiced_ratio: Probability  # 有效语音占比（有效采样点 / 总采样点）
+    duration_seconds: PositiveFloat  # 音频总时长（秒）
+    device: str  # 推理设备标识（cuda/mps/cpu）
+    elapsed_ms: NonNegativeInt  # 分析耗时（毫秒）
+    segments: list[SegmentResult]  # 分段分析结果列表
 
     @field_validator("device")
     @classmethod
@@ -214,9 +219,10 @@ class HealthResponse(ContractModel):
     - model_status : 模型加载状态，可能值："not_loaded" / "loading" / "loaded" / "error"
     - device       : 推理设备标识
     """
-    status: Literal["ok"]                                              # 服务状态（固定为 "ok"）
+
+    status: Literal["ok"]  # 服务状态（固定为 "ok"）
     model_status: Literal["not_loaded", "loading", "loaded", "error"]  # 模型生命周期状态
-    device: str                                                        # 推理设备标识
+    device: str  # 推理设备标识
 
 
 class ProgressEvent(ContractModel):
@@ -233,10 +239,11 @@ class ProgressEvent(ContractModel):
     - total   : 总段数
     - message : 人类可读的进度描述（用于前端展示）
     """
+
     type: Literal["status", "progress"]  # 事件类型：status(初始状态) / progress(分段进度)
-    current: NonNegativeInt              # 当前已完成段数
-    total: NonNegativeInt                # 总段数
-    message: str                         # 面向用户的中文进度提示
+    current: NonNegativeInt  # 当前已完成段数
+    total: NonNegativeInt  # 总段数
+    message: str  # 面向用户的中文进度提示
 
     @model_validator(mode="after")
     def validate_progress(self) -> Self:
@@ -261,8 +268,9 @@ class ResultEvent(ContractModel):
     - type   : 事件类型标识，固定为 "result"
     - result : 完整分析结果（AnalysisResult 对象）
     """
+
     type: Literal["result"] = "result"  # 事件类型（固定为 "result"）
-    result: AnalysisResult              # 完整分析结果
+    result: AnalysisResult  # 完整分析结果
 
 
 class PublicError(ContractModel):
@@ -282,8 +290,9 @@ class PublicError(ContractModel):
     - code    : 错误代码标识（如 "NO_VOICE", "FILE_TOO_LARGE"），供前端逻辑判断
     - message : 人类可读的错误描述（如 "未检测到清晰人声"），供前端展示
     """
-    code: str      # 机器可读的错误码
-    message: str   # 面向用户的中文提示
+
+    code: str  # 机器可读的错误码
+    message: str  # 面向用户的中文提示
 
     @field_validator("code", "message")
     @classmethod
@@ -309,8 +318,9 @@ class ErrorEvent(ContractModel):
     - type  : 事件类型标识，固定为 "error"
     - error : 可公开的错误信息（PublicError 对象）
     """
+
     type: Literal["error"]  # 事件类型（固定为 "error"）
-    error: PublicError      # 公开错误对象
+    error: PublicError  # 公开错误对象
 
 
 class AnalyzeUrlRequest(ContractModel):
@@ -325,6 +335,7 @@ class AnalyzeUrlRequest(ContractModel):
     - 协议白名单：仅允许 http 和 https，拒绝 file、ftp 等协议
     - URL 两端空白自动去除，防止用户误输入前后空格
     """
+
     url: str  # 音频文件 URL
 
     @field_validator("url")

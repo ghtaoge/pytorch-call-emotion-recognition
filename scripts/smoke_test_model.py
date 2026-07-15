@@ -28,8 +28,8 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.analyzer import project_probabilities  # 将模型原始 logits 投射为情感概率分布
-from app.config import get_settings              # 获取项目配置（含模型ID、设备等参数）
-from app.model import EmotionModelRuntime        # 情感模型运行时封装，负责加载与推理
+from app.config import get_settings  # 获取项目配置（含模型ID、设备等参数）
+from app.model import EmotionModelRuntime  # 情感模型运行时封装，负责加载与推理
 
 
 def main() -> None:

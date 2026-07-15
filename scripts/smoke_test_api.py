@@ -25,13 +25,13 @@ import sys
 from pathlib import Path
 
 import numpy as np
-from fastapi.testclient import TestClient      # FastAPI 内置测试客户端，无需启动真实服务器
-from scipy.io.wavfile import write              # scipy 的 WAV 写入函数，用于生成合规的音频文件
+from fastapi.testclient import TestClient  # FastAPI 内置测试客户端，无需启动真实服务器
+from scipy.io.wavfile import write  # scipy 的 WAV 写入函数，用于生成合规的音频文件
 
 # 将项目根目录加入 sys.path，以便直接导入 app 包下的模块
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.main import create_app                 # FastAPI 应用工厂函数，创建应用实例
+from app.main import create_app  # FastAPI 应用工厂函数，创建应用实例
 
 
 def main() -> None:
@@ -45,8 +45,8 @@ def main() -> None:
     waveform = (0.1 * np.sin(2 * np.pi * 220 * seconds) * 32767).astype(np.int16)
 
     # === 第二步：编码为 WAV 格式 ===
-    buffer = io.BytesIO()                       # 创建内存缓冲区，避免写临时文件
-    write(buffer, 16_000, waveform)             # 将波形数据写入缓冲区，指定采样率 16kHz
+    buffer = io.BytesIO()  # 创建内存缓冲区，避免写临时文件
+    write(buffer, 16_000, waveform)  # 将波形数据写入缓冲区，指定采样率 16kHz
 
     # === 第三步：通过 TestClient 发送请求并接收流式响应 ===
     # 使用 FastAPI TestClient 模拟 HTTP 请求，无需启动真实服务器进程

@@ -53,6 +53,7 @@ def test_workbench_contains_required_controls_and_local_assets() -> None:
     # 确保不引用任何外部资源 URL（排除 placeholder 中的示例 URL）
     # URL 输入框的 placeholder 包含 "https://" 作为格式提示，这是允许的
     import re
+
     external_refs = re.findall(r'(src|href)=["\']https?://[^"\']["\']', html)
     assert not external_refs  # 不应存在指向外部 URL 的 src 或 href
     # 确保引用了本地 JavaScript 资源

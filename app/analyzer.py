@@ -64,6 +64,7 @@ class ProjectedPrediction:
     - dominant_emotion : 概率最高的目标情绪类别
     - reliability      : 可靠性评估（high/low + 原因列表）
     """
+
     probabilities: EmotionProbabilities
     excluded_probability: float
     dominant_emotion: Emotion

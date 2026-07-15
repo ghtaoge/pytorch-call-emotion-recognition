@@ -18,12 +18,11 @@ import numpy as np
 from fastapi.testclient import TestClient
 
 import app.main as main_module
-from app.audio import DecodedAudio, fetch_audio_from_url
+from app.audio import DecodedAudio
 from app.config import Settings
 from app.errors import AppError
 from app.schemas import (
     AnalysisResult,
-    AnalyzeUrlRequest,
     EmotionProbabilities,
     ProgressEvent,
     Reliability,
@@ -61,7 +60,9 @@ class FakeAnalyzer:
         yield ResultEvent(
             result=AnalysisResult(
                 dominant_emotion="neutral",  # 主导情感为 neutral
-                probabilities=EmotionProbabilities(neutral=0.7, happy=0.1, anger=0.1, sad=0.1),  # 四类概率分布
+                probabilities=EmotionProbabilities(
+                    neutral=0.7, happy=0.1, anger=0.1, sad=0.1
+                ),  # 四类概率分布
                 reliability=Reliability(level="high", reasons=[]),  # 可靠性等级为 high
                 excluded_probability=0.05,  # 被排除的概率为 5%
                 voiced_ratio=1.0,  # 有声占比为 100%
@@ -175,10 +176,14 @@ def test_analyze_url_handles_download_failure(monkeypatch) -> None:
     monkeypatch.setattr(
         main_module,
         "fetch_audio_from_url",
-        lambda _url, _settings: (_ for _ in ()).throw(AppError("URL_DOWNLOAD_FAILED", "下载失败", 400)),
+        lambda _url, _settings: (_ for _ in ()).throw(
+            AppError("URL_DOWNLOAD_FAILED", "下载失败", 400)
+        ),
     )
     client = TestClient(main_module.create_app(Settings(), FakeServices()))  # type: ignore[arg-type]
-    response = client.post("/api/analyze-url", json={"url": "https://unreachable.example.com/audio.wav"})
+    response = client.post(
+        "/api/analyze-url", json={"url": "https://unreachable.example.com/audio.wav"}
+    )
     assert response.status_code == 400
 
 

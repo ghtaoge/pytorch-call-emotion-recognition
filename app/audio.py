@@ -64,6 +64,7 @@ class DecodedAudio:
     - waveform    : 单声道 16kHz 浮点波形，dtype=np.float32，值域 [-1.0, 1.0]
     - sample_rate : 采样率，固定为 TARGET_SAMPLE_RATE (16000)
     """
+
     waveform: np.ndarray
     sample_rate: int
 
@@ -96,6 +97,7 @@ class AudioSegment:
     这是为了避免大音频文件在分段时产生大量内存拷贝。
     若需要独立拷贝，调用方应自行 waveform.copy()。
     """
+
     index: int
     start_seconds: float
     end_seconds: float
@@ -282,49 +284,53 @@ def fetch_audio_from_url(url: str, settings: Settings) -> tuple[bytes, str]:
     )
 
     try:
-        with httpx.Client(
-            timeout=timeout_config,
-            max_redirects=settings.url_max_redirects,
-            follow_redirects=True,
-            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
-        ) as client:
-            with client.stream("GET", stripped_url) as response:
-                if response.status_code >= 400:
-                    raise AppError(
-                        "URL_DOWNLOAD_FAILED",
-                        f"音频下载失败（HTTP {response.status_code}）",
-                        400,
-                    )
-                # 推断文件名：优先 Content-Disposition，其次 URL 路径，
-                # 再次从 Content-Type 推断扩展名，兜底使用 .wav
-                filename = _extract_filename_from_headers(response.headers)
-                if filename is None:
-                    filename = _extract_filename_from_url(stripped_url)
-                # 若文件名无合法音频扩展名，尝试从 Content-Type 推断
-                if not any(filename.lower().endswith(s) for s in SUPPORTED_SUFFIXES):
-                    content_type_suffix = _infer_suffix_from_content_type(
-                        response.headers.get("content-type", "")
-                    )
-                    if content_type_suffix:
-                        filename = filename + content_type_suffix
-                    else:
-                        # 最终兜底：使用 .wav 扩展名
-                        # FFmpeg 可以通过探测内容识别实际格式，.wav 后缀不会阻止解码
-                        filename = filename + ".wav"
+        with (
+            httpx.Client(
+                timeout=timeout_config,
+                max_redirects=settings.url_max_redirects,
+                follow_redirects=True,
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                },
+            ) as client,
+            client.stream("GET", stripped_url) as response,
+        ):
+            if response.status_code >= 400:
+                raise AppError(
+                    "URL_DOWNLOAD_FAILED",
+                    f"音频下载失败（HTTP {response.status_code}）",
+                    400,
+                )
+            # 推断文件名：优先 Content-Disposition，其次 URL 路径，
+            # 再次从 Content-Type 推断扩展名，兜底使用 .wav
+            filename = _extract_filename_from_headers(response.headers)
+            if filename is None:
+                filename = _extract_filename_from_url(stripped_url)
+            # 若文件名无合法音频扩展名，尝试从 Content-Type 推断
+            if not any(filename.lower().endswith(s) for s in SUPPORTED_SUFFIXES):
+                content_type_suffix = _infer_suffix_from_content_type(
+                    response.headers.get("content-type", "")
+                )
+                if content_type_suffix:
+                    filename = filename + content_type_suffix
+                else:
+                    # 最终兜底：使用 .wav 扩展名
+                    # FFmpeg 可以通过探测内容识别实际格式，.wav 后缀不会阻止解码
+                    filename = filename + ".wav"
 
-                # 流式下载 + 实时大小检查
-                chunks: list[bytes] = []
-                total = 0
-                for chunk in response.iter_bytes(chunk_size=READ_CHUNK_SIZE):
-                    total += len(chunk)
-                    if total > settings.max_bytes:
-                        raise AppError("URL_FILE_TOO_LARGE", "音频文件不能超过 50 MB", 413)
-                    chunks.append(chunk)
+            # 流式下载 + 实时大小检查
+            chunks: list[bytes] = []
+            total = 0
+            for chunk in response.iter_bytes(chunk_size=READ_CHUNK_SIZE):
+                total += len(chunk)
+                if total > settings.max_bytes:
+                    raise AppError("URL_FILE_TOO_LARGE", "音频文件不能超过 50 MB", 413)
+                chunks.append(chunk)
 
-                if not chunks:
-                    raise AppError("URL_DOWNLOAD_FAILED", "下载的音频文件为空", 400)
+            if not chunks:
+                raise AppError("URL_DOWNLOAD_FAILED", "下载的音频文件为空", 400)
 
-                return b"".join(chunks), filename
+            return b"".join(chunks), filename
 
     except httpx.TimeoutException as exc:
         raise AppError("URL_DOWNLOAD_TIMEOUT", "音频下载超时，请检查 URL 或重试", 408) from exc
@@ -472,15 +478,22 @@ def decode_audio(data: bytes, filename: str | None, settings: Settings) -> Decod
         # 避免要求用户自行安装 FFmpeg
         command = [
             imageio_ffmpeg.get_ffmpeg_exe(),
-            "-v", "error",             # 仅输出错误信息，抑制冗余日志
-            "-nostdin",                # 不从标准输入读取，防止意外阻塞
-            "-i", temp_path,           # 输入文件路径
-            "-t", str(settings.max_duration_seconds + 1),  # 限制解码时长（多 1 秒缓冲）
-            "-f", "f32le",             # 输出格式：32 位浮点小端序 PCM
-            "-acodec", "pcm_f32le",    # 编解码器：PCM 32 位浮点小端序
-            "-ac", "1",                # 输出声道数：单声道（FFmpeg 阶段合并）
-            "-ar", str(TARGET_SAMPLE_RATE),  # 输出采样率：16kHz（FFmpeg 阶段重采样）
-            "pipe:1",                  # 输出到 stdout，避免二次临时文件
+            "-v",
+            "error",  # 仅输出错误信息，抑制冗余日志
+            "-nostdin",  # 不从标准输入读取，防止意外阻塞
+            "-i",
+            temp_path,  # 输入文件路径
+            "-t",
+            str(settings.max_duration_seconds + 1),  # 限制解码时长（多 1 秒缓冲）
+            "-f",
+            "f32le",  # 输出格式：32 位浮点小端序 PCM
+            "-acodec",
+            "pcm_f32le",  # 编解码器：PCM 32 位浮点小端序
+            "-ac",
+            "1",  # 输出声道数：单声道（FFmpeg 阶段合并）
+            "-ar",
+            str(TARGET_SAMPLE_RATE),  # 输出采样率：16kHz（FFmpeg 阶段重采样）
+            "pipe:1",  # 输出到 stdout，避免二次临时文件
         ]
         # 执行 FFmpeg subprocess
         # - check=False：不自动抛异常，我们手动检查 returncode

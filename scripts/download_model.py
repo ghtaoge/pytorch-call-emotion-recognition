@@ -17,8 +17,8 @@ from pathlib import Path
 # 将项目根目录加入 sys.path，以便直接导入 app 包下的模块
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.config import get_settings          # 获取项目配置（含模型ID、设备等参数）
-from app.model import EmotionModelRuntime     # 情感模型运行时封装，负责加载与推理
+from app.config import get_settings  # 获取项目配置（含模型ID、设备等参数）
+from app.model import EmotionModelRuntime  # 情感模型运行时封装，负责加载与推理
 
 
 def main() -> None:
